@@ -14,17 +14,22 @@ leaves the phone.
 The app has to be served over HTTPS for the home-screen install to work, which the included
 GitHub Pages workflow handles.
 
-**1. Turn on Pages (once).** In the repository, go to **Settings → Pages** and set
-**Source** to **GitHub Actions**.
+**1. Make the repository public (once).** GitHub Pages only works on private repositories with
+a paid plan, so on the free plan the repository has to be public:
+**Settings → General → Danger Zone → Change visibility → Public**. Nothing sensitive lives in
+here — there are no keys or credentials, and your habit data is only ever on your own phone.
 
-**2. Push.** The `Build and deploy` workflow runs on every push to `main` or the
+**2. Turn on Pages (once).** **Settings → Pages**, then set **Source** to **GitHub Actions**.
+The workflow cannot do this step for itself; its token isn't allowed to create a Pages site.
+
+**3. Push.** The `Build and deploy` workflow runs on every push to `main` or the
 `claude/habit-tracker-app-tzew8h` branch, and publishes to:
 
 ```
 https://<your-username>.github.io/first-try-app/
 ```
 
-**3. Add it to your home screen.**
+**4. Add it to your home screen.**
 
 - **iPhone / iPad** — open that link in **Safari** (it must be Safari; Chrome on iOS cannot
   install web apps), tap **Share**, then **Add to Home Screen**.
