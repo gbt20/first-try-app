@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover lets the layout reach under the notch and home bar,
+         which the safe-area insets in styles.css then pad back out. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+    <title>Habits</title>
+    <meta name="description" content="A private, offline habit tracker for your home screen." />
+
+    <!-- Tints the browser and status bar to match whichever theme is showing. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f4f2" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#131211" />
+
+    <!-- Launches without browser chrome once added to the home screen. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Habits" />
+
+    <link rel="icon" href="%BASE_URL%favicon.svg" type="image/svg+xml" />
+    <link rel="alternate icon" href="%BASE_URL%favicon-48.png" sizes="48x48" />
+    <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
