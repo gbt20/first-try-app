@@ -343,9 +343,9 @@ h3 {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-height: 64px;
-  padding: 10px 14px;
+  padding: 10px 12px 10px 14px;
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -357,10 +357,340 @@ h3 {
     transform 0.08s;
 }
 
-.habit-row:active,
 .manage-main:active,
-.stat-row:active {
+.stat-row:active,
+.row-main:active {
   transform: scale(0.985);
+}
+
+/* The whole left side of a row is the "do it" target. */
+.row-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 4px 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  transition: transform 0.08s;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.row-readout {
+  min-width: 42px;
+  height: 36px;
+  padding: 0 8px;
+  font-size: 16px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--habit-color);
+  background: color-mix(in srgb, var(--habit-color) 14%, var(--surface-2));
+  border: 0;
+  border-radius: 10px;
+}
+
+/* A thin fill under the name, so partial progress is visible at a glance. */
+.row-bar {
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.row-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--habit-color);
+  transition: width 0.25s ease;
+}
+
+.row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+/* ---------------------------------------------------------------- slots */
+
+.slot-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+  flex-shrink: 0;
+  max-width: 48%;
+}
+
+.slot-chip {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.slot-chip.on {
+  background: var(--habit-color);
+  border-color: var(--habit-color);
+  color: #fff;
+}
+
+.slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slot-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 14px;
+  font-size: 16px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+}
+
+.slot-option.selected {
+  border-color: var(--habit-color);
+  background: color-mix(in srgb, var(--habit-color) 10%, var(--surface));
+}
+
+.slot-check {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--surface-3);
+}
+
+.slot-option.selected .slot-check {
+  background: var(--habit-color);
+  border-color: var(--habit-color);
+}
+
+.slot-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slot-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* -------------------------------------------------------------- steppers */
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-button {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 0;
+  border-radius: 12px;
+}
+
+.step-button:active {
+  background: var(--surface-3);
+}
+
+.step-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.step-button.small {
+  width: 36px;
+  height: 36px;
+  font-size: 19px;
+  border-radius: 10px;
+}
+
+.step-value {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.stepper.big .step-button {
+  width: 56px;
+  height: 56px;
+  font-size: 26px;
+}
+
+.stepper.big .step-value {
+  font-size: 22px;
+}
+
+.quick-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.quick-row .button {
+  flex: 1;
+}
+
+.big-toggle {
+  width: 100%;
+  min-height: 60px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 2px solid transparent;
+  border-radius: 14px;
+}
+
+.big-toggle.on {
+  background: color-mix(in srgb, var(--habit-color) 16%, var(--surface));
+  border-color: var(--habit-color);
+  color: var(--habit-color);
+}
+
+.day-edit {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.day-edit h3 {
+  font-size: 20px;
+}
+
+.day-edit p {
+  margin: 2px 0 0;
+  font-size: 14px;
+}
+
+/* ----------------------------------------------------------------- tags */
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-row.filter {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  padding-bottom: 2px;
+}
+
+.tag {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 999px;
+}
+
+.tag.selected {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tag.mini {
+  padding: 2px 8px;
+  font-size: 11px;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------- editor extras */
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: end;
+}
+
+.custom-color {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.custom-color input[type='color'] {
+  width: 44px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: none;
+}
+
+.select {
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+}
+
+.warn {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+}
+
+.summary-line {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  font-size: 14px;
 }
 
 .habit-row.checked {
@@ -413,12 +743,14 @@ h3 {
 
 .check {
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
+  padding: 0;
   border-radius: 50%;
   border: 2px solid var(--surface-3);
+  background: none;
   color: transparent;
   transition:
     background 0.18s,
@@ -430,6 +762,10 @@ h3 {
   background: var(--habit-color);
   border-color: var(--habit-color);
   color: #fff;
+}
+
+.check:active {
+  transform: scale(0.9);
 }
 
 .chevron {
@@ -719,6 +1055,10 @@ button.cell {
   background: var(--habit-color, var(--accent));
 }
 
+.cell-partial {
+  background: color-mix(in srgb, var(--habit-color, var(--accent)) 45%, var(--surface-2));
+}
+
 .cell-missed {
   background: var(--missed);
 }
@@ -931,6 +1271,14 @@ button.cell {
   padding: 3px;
   background: var(--surface-2);
   border-radius: 12px;
+}
+
+.segmented.wrap {
+  flex-wrap: wrap;
+}
+
+.segmented.wrap .segment {
+  flex: 1 1 30%;
 }
 
 .segment {

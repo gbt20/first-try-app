@@ -1,38 +1,45 @@
 import { useState } from 'react';
 
 import { friendlyDate } from '../dates.ts';
-import { describeSchedule, formatRate, statsFor, weekProgress } from '../habits.ts';
-import type { Done } from '../habits.ts';
+import {
+  describeSchedule,
+  describeTracking,
+  formatNumber,
+  formatRate,
+  periodProgress,
+  statsFor,
+} from '../habits.ts';
+import type { Days } from '../habits.ts';
 import type { DateKey, Habit, WeekStart } from '../types.ts';
 import { Heatmap, HeatmapLegend, HeatmapScroll } from './Heatmap.tsx';
 import { Sheet } from './Sheet.tsx';
 
 interface Props {
   habit: Habit;
-  done: Done;
+  days: Days;
   today: DateKey;
   weekStart: WeekStart;
   onClose: () => void;
   onEdit: () => void;
-  onToggleDay: (day: DateKey) => void;
+  onEditDay: (day: DateKey) => void;
   onArchive: (archived: boolean) => void;
   onDelete: () => void;
 }
 
 export function HabitDetail({
   habit,
-  done,
+  days,
   today,
   weekStart,
   onClose,
   onEdit,
-  onToggleDay,
+  onEditDay,
   onArchive,
   onDelete,
 }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const stats = statsFor(habit, done, weekStart, today);
-  const week = weekProgress(habit, done, today, weekStart);
+  const stats = statsFor(habit, days, weekStart, today);
+  const period = periodProgress(habit, days, today, weekStart);
 
   return (
     <Sheet
@@ -53,6 +60,7 @@ export function HabitDetail({
           <h3>{habit.name}</h3>
           <p className="muted">
             {describeSchedule(habit.schedule)}
+            {describeTracking(habit.tracking) && ` · ${describeTracking(habit.tracking)}`}
             {habit.archivedAt && ` · archived ${friendlyDate(habit.archivedAt, today).toLowerCase()}`}
           </p>
         </div>
@@ -66,22 +74,29 @@ export function HabitDetail({
         />
         <Stat value={String(stats.longest.count)} unit={`best ${stats.longest.unit}s`} />
         <Stat value={formatRate(stats.rate)} unit="completed" />
-        <Stat value={String(stats.total)} unit="check-ins" />
+        {habit.tracking.kind === 'amount' ? (
+          <Stat
+            value={formatNumber(stats.amountTotal)}
+            unit={`${habit.tracking.unit} all time`}
+          />
+        ) : (
+          <Stat value={String(stats.daysDone)} unit="days done" />
+        )}
       </div>
 
-      {habit.schedule.kind === 'timesPerWeek' && (
+      {period.unit !== 'day' && (
         <div className="card">
           <div className="row-between">
-            <span>This week</span>
+            <span>This {period.unit}</span>
             <strong>
-              {week.count} of {week.target}
+              {period.count} of {period.quota}
             </strong>
           </div>
           <div className="bar">
             <div
               className="bar-fill"
               style={{
-                width: `${Math.min(100, (week.count / Math.max(1, week.target)) * 100)}%`,
+                width: `${Math.min(100, (period.count / Math.max(1, period.quota)) * 100)}%`,
                 background: habit.color,
               }}
             />
@@ -92,16 +107,16 @@ export function HabitDetail({
       <div className="card">
         <div className="row-between">
           <span>History</span>
-          <span className="muted small">tap a day to change it</span>
+          <span className="muted small">tap a day to edit it</span>
         </div>
         <HeatmapScroll>
           <Heatmap
             habit={habit}
-            done={done}
+            days={days}
             today={today}
             weekStart={weekStart}
             weeks={26}
-            onSelectDay={onToggleDay}
+            onSelectDay={onEditDay}
           />
         </HeatmapScroll>
         <HeatmapLegend habit={habit} />

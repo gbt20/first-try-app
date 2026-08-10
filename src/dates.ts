@@ -19,8 +19,17 @@ export function fromKey(key: DateKey): Date {
   return new Date(y, m - 1, d);
 }
 
-export function todayKey(): DateKey {
-  return toKey(new Date());
+/**
+ * The day the user considers "now".
+ *
+ * `dayStartHour` shifts the boundary later than midnight: at 3, a check-in at
+ * 1am still belongs to the previous day. Every other date in the app is
+ * derived from this, so the setting only has to be honoured here.
+ */
+export function todayKey(dayStartHour = 0, now: Date = new Date()): DateKey {
+  const shifted = new Date(now.getTime());
+  shifted.setHours(shifted.getHours() - dayStartHour);
+  return toKey(shifted);
 }
 
 /**
@@ -44,6 +53,18 @@ export function daysBetween(a: DateKey, b: DateKey): number {
   const ms = fromKey(b).getTime() - fromKey(a).getTime();
   // Round rather than floor: a DST transition makes one "day" 23 or 25 hours.
   return Math.round(ms / 86_400_000);
+}
+
+/** First day of the calendar month holding `key`. */
+export function startOfMonth(key: DateKey): DateKey {
+  return `${key.slice(0, 7)}-01`;
+}
+
+/** First day of the month `n` months after the one holding `key`. */
+export function addMonths(key: DateKey, n: number): DateKey {
+  const d = fromKey(startOfMonth(key));
+  d.setMonth(d.getMonth() + n);
+  return toKey(d);
 }
 
 export function startOfWeek(key: DateKey, weekStart: WeekStart): DateKey {

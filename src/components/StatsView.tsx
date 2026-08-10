@@ -1,16 +1,19 @@
 import { useMemo, useRef, useState } from 'react';
 
 import { addDays, eachDay, friendlyDate, fromKey, monthName, startOfWeek } from '../dates.ts';
-import { formatRate, isScheduledDay, statsFor } from '../habits.ts';
-import type { AppState, DateKey, Habit } from '../types.ts';
+import { formatNumber, formatRate, isDone, isScheduledDay, progressOn, statsFor } from '../habits.ts';
+import type { Days } from '../habits.ts';
+import type { AppState, DateKey, Habit, WeekStart } from '../types.ts';
 import { Heatmap, HeatmapScroll } from './Heatmap.tsx';
 
 interface Props {
   state: AppState;
   today: DateKey;
   onOpen: (habit: Habit) => void;
-  onSetWeekStart: (weekStart: 0 | 1) => void;
+  onSetWeekStart: (weekStart: WeekStart) => void;
+  onSetDayStartHour: (hour: number) => void;
   onExport: () => string;
+  onExportCsv: () => string;
   onImport: (json: string) => boolean;
   onClearAll: () => void;
 }
@@ -22,42 +25,53 @@ export function StatsView({
   today,
   onOpen,
   onSetWeekStart,
+  onSetDayStartHour,
   onExport,
+  onExportCsv,
   onImport,
   onClearAll,
 }: Props) {
+  const [tag, setTag] = useState<string | null>(null);
+
   const active = useMemo(() => state.habits.filter((h) => !h.archivedAt), [state.habits]);
+  const allTags = useMemo(
+    () => [...new Set(active.flatMap((h) => h.tags))].sort(),
+    [active],
+  );
+  const shown = useMemo(
+    () => (tag ? active.filter((h) => h.tags.includes(tag)) : active),
+    [active, tag],
+  );
 
   const perHabit = useMemo(
     () =>
-      active.map((habit) => ({
-        habit,
-        done: state.completions[habit.id] ?? new Set<DateKey>(),
-        stats: statsFor(habit, state.completions[habit.id] ?? new Set(), state.weekStart, today),
-      })),
-    [active, state.completions, state.weekStart, today],
+      shown.map((habit) => {
+        const days: Days = state.entries[habit.id] ?? {};
+        return { habit, days, stats: statsFor(habit, days, state.weekStart, today) };
+      }),
+    [shown, state.entries, state.weekStart, today],
   );
 
   const totals = useMemo(() => {
-    const checkIns = perHabit.reduce((sum, p) => sum + p.stats.total, 0);
+    const daysDone = perHabit.reduce((sum, p) => sum + p.stats.daysDone, 0);
     const best = perHabit.reduce((max, p) => Math.max(max, p.stats.current.count), 0);
     const bestEver = perHabit.reduce((max, p) => Math.max(max, p.stats.longest.count), 0);
 
-    // Last 30 days, pooled across habits: how many of the days a habit was
-    // actually due did it get done? Today only counts once it is checked off.
+    // Last 30 days, pooled: of the days a habit was actually due, how many got
+    // finished? Today only counts once it is done.
     let due = 0;
     let hit = 0;
-    for (const { habit, done } of perHabit) {
+    for (const { habit, days } of perHabit) {
       for (const day of eachDay(addDays(today, -29), today)) {
         if (day < habit.createdAt) continue;
         if (!isScheduledDay(habit, day)) continue;
-        const checked = done.has(day);
-        if (day === today && !checked) continue;
+        const done = isDone(habit, days, day);
+        if (day === today && !done) continue;
         due += 1;
-        if (checked) hit += 1;
+        if (done) hit += 1;
       }
     }
-    return { checkIns, best, bestEver, rate: due > 0 ? hit / due : null };
+    return { daysDone, best, bestEver, rate: due > 0 ? hit / due : null };
   }, [perHabit, today]);
 
   return (
@@ -70,6 +84,28 @@ export function StatsView({
         <p className="muted">Add a habit and your progress will show up here.</p>
       ) : (
         <>
+          {allTags.length > 0 && (
+            <div className="tag-row filter">
+              <button
+                type="button"
+                className={`tag${tag === null ? ' selected' : ''}`}
+                onClick={() => setTag(null)}
+              >
+                All
+              </button>
+              {allTags.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`tag${tag === t ? ' selected' : ''}`}
+                  onClick={() => setTag(tag === t ? null : t)}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="stat-grid">
             <div className="stat highlight">
               <strong>{totals.best}</strong>
@@ -84,8 +120,8 @@ export function StatsView({
               <small>longest ever</small>
             </div>
             <div className="stat">
-              <strong>{totals.checkIns}</strong>
-              <small>total check-ins</small>
+              <strong>{totals.daysDone}</strong>
+              <small>days completed</small>
             </div>
           </div>
 
@@ -93,7 +129,7 @@ export function StatsView({
             <div className="row-between">
               <span>Every habit, every day</span>
             </div>
-            <OverviewHeatmap state={state} today={today} habits={active} />
+            <OverviewHeatmap state={state} today={today} habits={shown} />
             <div className="legend">
               <span className="cell cell-missed" /> none
               <span className="overview-cell" style={{ opacity: 0.55 }} /> some
@@ -103,7 +139,7 @@ export function StatsView({
 
           <h2 className="section-title">By habit</h2>
           <ul className="habit-list">
-            {perHabit.map(({ habit, done, stats }) => (
+            {perHabit.map(({ habit, days, stats }) => (
               <li key={habit.id}>
                 <button
                   type="button"
@@ -117,14 +153,17 @@ export function StatsView({
                       <span className="habit-name">{habit.name}</span>
                       <span className="habit-meta">
                         {formatRate(stats.rate)} · 🔥 {stats.current.count} {stats.current.unit}
-                        {stats.current.count === 1 ? '' : 's'} · best {stats.longest.count}
+                        {stats.current.count === 1 ? '' : 's'}
+                        {habit.tracking.kind === 'amount'
+                          ? ` · ${formatNumber(stats.amountTotal)} ${habit.tracking.unit}`
+                          : ` · best ${stats.longest.count}`}
                       </span>
                     </span>
                     <span className="chevron">›</span>
                   </span>
                   <Heatmap
                     habit={habit}
-                    done={done}
+                    days={days}
                     today={today}
                     weekStart={state.weekStart}
                     weeks={16}
@@ -140,7 +179,9 @@ export function StatsView({
       <Settings
         state={state}
         onSetWeekStart={onSetWeekStart}
+        onSetDayStartHour={onSetDayStartHour}
         onExport={onExport}
+        onExportCsv={onExportCsv}
         onImport={onImport}
         onClearAll={onClearAll}
       />
@@ -162,7 +203,7 @@ function OverviewHeatmap({
     const first = addDays(startOfWeek(today, state.weekStart), -7 * (OVERVIEW_WEEKS - 1));
     return Array.from({ length: OVERVIEW_WEEKS }, (_, w) => {
       const weekOf = addDays(first, w * 7);
-      return { weekOf, days: Array.from({ length: 7 }, (_, d) => addDays(weekOf, d)) };
+      return { weekOf, cells: Array.from({ length: 7 }, (_, d) => addDays(weekOf, d)) };
     });
   }, [today, state.weekStart]);
 
@@ -178,14 +219,16 @@ function OverviewHeatmap({
 
   function ratioFor(day: DateKey): number | null {
     let due = 0;
-    let hit = 0;
+    let sum = 0;
     for (const habit of habits) {
       if (day < habit.createdAt) continue;
       if (!isScheduledDay(habit, day)) continue;
       due += 1;
-      if (state.completions[habit.id]?.has(day)) hit += 1;
+      // Part-finished habits count as a fraction, matching the ring on Today.
+      const { value, target } = progressOn(habit, state.entries[habit.id] ?? {}, day);
+      sum += Math.min(1, value / target);
     }
-    return due === 0 ? null : hit / due;
+    return due === 0 ? null : sum / due;
   }
 
   return (
@@ -198,9 +241,9 @@ function OverviewHeatmap({
             ))}
           </div>
           <div className="heatmap-grid">
-            {columns.map(({ weekOf, days }) => (
+            {columns.map(({ weekOf, cells }) => (
               <div className="heatmap-week" key={weekOf}>
-                {days.map((day) => {
+                {cells.map((day) => {
                   if (day > today) return <span key={day} className="cell cell-future" />;
                   const ratio = ratioFor(day);
                   if (ratio === null) return <span key={day} className="cell cell-off" />;
@@ -223,26 +266,39 @@ function OverviewHeatmap({
   );
 }
 
+type SettingsProps = Pick<
+  Props,
+  | 'state'
+  | 'onSetWeekStart'
+  | 'onSetDayStartHour'
+  | 'onExport'
+  | 'onExportCsv'
+  | 'onImport'
+  | 'onClearAll'
+>;
+
 function Settings({
   state,
   onSetWeekStart,
+  onSetDayStartHour,
   onExport,
+  onExportCsv,
   onImport,
   onClearAll,
-}: Pick<Props, 'state' | 'onSetWeekStart' | 'onExport' | 'onImport' | 'onClearAll'>) {
+}: SettingsProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [note, setNote] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
 
-  function download() {
-    const blob = new Blob([onExport()], { type: 'application/json' });
+  function download(text: string, extension: string, type: string) {
+    const blob = new Blob([text], { type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `habits-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `habits-${new Date().toISOString().slice(0, 10)}.${extension}`;
     a.click();
     URL.revokeObjectURL(url);
-    setNote('Backup saved.');
+    setNote(`Saved as .${extension}`);
   }
 
   async function copy() {
@@ -285,12 +341,35 @@ function Settings({
       </div>
 
       <div className="card">
+        <div className="row-between">
+          <label htmlFor="day-start">My day starts at</label>
+          <select
+            id="day-start"
+            className="select"
+            value={state.dayStartHour}
+            onChange={(e) => onSetDayStartHour(Number(e.target.value))}
+          >
+            {Array.from({ length: 12 }, (_, h) => (
+              <option key={h} value={h}>
+                {h === 0 ? 'Midnight' : `${h}:00 am`}
+              </option>
+            ))}
+          </select>
+        </div>
+        <p className="hint">
+          {state.dayStartHour === 0
+            ? 'A new day begins at midnight.'
+            : `Anything logged before ${state.dayStartHour}:00 am counts towards the day before, so a late night doesn’t split in two.`}
+        </p>
+      </div>
+
+      <div className="card">
         <p className="muted small">
           Everything is stored on this device only. Nothing is uploaded anywhere, and clearing your
           browser data for this site would erase it — so keep a backup if it matters to you.
         </p>
         <div className="button-row">
-          <button type="button" className="button" onClick={download}>
+          <button type="button" className="button" onClick={() => download(onExport(), 'json', 'application/json')}>
             Save backup
           </button>
           <button type="button" className="button" onClick={copy}>
@@ -298,6 +377,9 @@ function Settings({
           </button>
           <button type="button" className="button" onClick={() => fileInput.current?.click()}>
             Restore
+          </button>
+          <button type="button" className="button" onClick={() => download(onExportCsv(), 'csv', 'text/csv')}>
+            Export CSV
           </button>
         </div>
         <input
@@ -307,7 +389,9 @@ function Settings({
           hidden
           onChange={(e) => void handleFile(e.target.files?.[0])}
         />
-        {note && <p className="hint">{note}</p>}
+        <p className="hint">
+          {note ?? 'The CSV is for spreadsheets — only the JSON backup can be restored.'}
+        </p>
       </div>
 
       <div className="card">

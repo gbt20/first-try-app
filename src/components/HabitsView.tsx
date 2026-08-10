@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { describeSchedule, statsFor } from '../habits.ts';
+import { describeSchedule, describeTracking, statsFor } from '../habits.ts';
 import type { AppState, DateKey, Habit } from '../types.ts';
 
 interface Props {
@@ -68,9 +68,19 @@ export function HabitsView({ state, today, onOpen, onAddHabit, onMove }: Props) 
                     <span className="habit-name">{habit.name}</span>
                     <span className="habit-meta">
                       {describeSchedule(habit.schedule)}
+                      {describeTracking(habit.tracking) && ` · ${describeTracking(habit.tracking)}`}
                       {' · '}
                       {streakLabel(habit, state, today)}
                     </span>
+                    {habit.tags.length > 0 && (
+                      <span className="row-tags">
+                        {habit.tags.map((t) => (
+                          <span className="tag mini" key={t}>
+                            {t}
+                          </span>
+                        ))}
+                      </span>
+                    )}
                   </span>
                   <span className="chevron">›</span>
                 </button>
@@ -125,8 +135,8 @@ export function HabitsView({ state, today, onOpen, onAddHabit, onMove }: Props) 
 }
 
 function streakLabel(habit: Habit, state: AppState, today: DateKey): string {
-  const stats = statsFor(habit, state.completions[habit.id] ?? new Set(), state.weekStart, today);
+  const stats = statsFor(habit, state.entries[habit.id] ?? {}, state.weekStart, today);
   if (stats.current.count === 0) return 'no streak yet';
-  const unit = stats.current.unit === 'week' ? 'week' : 'day';
+  const unit = stats.current.unit;
   return `🔥 ${stats.current.count} ${unit}${stats.current.count === 1 ? '' : 's'}`;
 }

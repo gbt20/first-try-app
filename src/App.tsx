@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { todayKey } from './dates.ts';
 import { newHabit } from './storage.ts';
 import { useAppState, useToday } from './useAppState.ts';
 import type { DateKey, Habit } from './types.ts';
+import { DayEditor } from './components/DayEditor.tsx';
 import { HabitDetail } from './components/HabitDetail.tsx';
 import { HabitEditor } from './components/HabitEditor.tsx';
 import { HabitsView } from './components/HabitsView.tsx';
@@ -27,12 +27,18 @@ const TABS: { id: Tab; label: string }[] = [
 
 export default function App() {
   const [state, actions] = useAppState();
-  const today = useToday();
+  const today = useToday(state.dayStartHour);
 
   const [tab, setTab] = useState<Tab>('today');
-  const [day, setDay] = useState<DateKey>(todayKey);
+  const [day, setDay] = useState<DateKey>(today);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ habit: Habit; isNew: boolean } | null>(null);
+  const [editingDay, setEditingDay] = useState<{ habitId: string; day: DateKey } | null>(null);
+
+  const knownTags = useMemo(
+    () => [...new Set(state.habits.flatMap((h) => h.tags))].sort(),
+    [state.habits],
+  );
 
   // If the app was left open overnight, follow the clock forward rather than
   // stranding the user on yesterday.
@@ -47,8 +53,15 @@ export default function App() {
     if (detailId && !detail) setDetailId(null);
   }, [detailId, detail]);
 
+  const dayTarget = editingDay
+    ? (state.habits.find((h) => h.id === editingDay.habitId) ?? null)
+    : null;
+  useEffect(() => {
+    if (editingDay && !dayTarget) setEditingDay(null);
+  }, [editingDay, dayTarget]);
+
   function startNewHabit() {
-    setEditing({ habit: newHabit(state.habits.length), isNew: true });
+    setEditing({ habit: newHabit(state.habits.length, today), isNew: true });
   }
 
   return (
@@ -60,7 +73,10 @@ export default function App() {
             today={today}
             day={day}
             onChangeDay={setDay}
-            onToggle={actions.toggle}
+            onToggleDone={actions.toggleDone}
+            onBump={actions.bump}
+            onToggleSlot={actions.toggleSlot}
+            onEditDay={(habit, d) => setEditingDay({ habitId: habit.id, day: d })}
             onAddHabit={startNewHabit}
           />
         )}
@@ -79,7 +95,9 @@ export default function App() {
             today={today}
             onOpen={(habit) => setDetailId(habit.id)}
             onSetWeekStart={actions.setWeekStart}
+            onSetDayStartHour={actions.setDayStartHour}
             onExport={actions.exportJson}
+            onExportCsv={actions.exportCsv}
             onImport={actions.replaceAll}
             onClearAll={actions.clearAll}
           />
@@ -110,19 +128,33 @@ export default function App() {
         ))}
       </nav>
 
-      {detail && !editing && (
+      {detail && !editing && !editingDay && (
         <HabitDetail
           habit={detail}
-          done={state.completions[detail.id] ?? new Set()}
+          days={state.entries[detail.id] ?? {}}
           today={today}
           weekStart={state.weekStart}
           onClose={() => setDetailId(null)}
           onEdit={() => setEditing({ habit: detail, isNew: false })}
-          onToggleDay={(d) => actions.toggle(detail.id, d)}
-          onArchive={(archived) => actions.setArchived(detail.id, archived)}
+          onEditDay={(d) => setEditingDay({ habitId: detail.id, day: d })}
+          onArchive={(archived) => actions.setArchived(detail.id, archived, today)}
           onDelete={() => {
             actions.removeHabit(detail.id);
             setDetailId(null);
+          }}
+        />
+      )}
+
+      {dayTarget && editingDay && (
+        <DayEditor
+          habit={dayTarget}
+          days={state.entries[dayTarget.id] ?? {}}
+          day={editingDay.day}
+          today={today}
+          onClose={() => setEditingDay(null)}
+          onSave={(value) => {
+            actions.setValue(dayTarget.id, editingDay.day, value);
+            setEditingDay(null);
           }}
         />
       )}
@@ -132,6 +164,9 @@ export default function App() {
           habit={editing.habit}
           isNew={editing.isNew}
           weekStart={state.weekStart}
+          knownTags={knownTags}
+          loggedDays={Object.keys(state.entries[editing.habit.id] ?? {}).length}
+          today={today}
           onCancel={() => setEditing(null)}
           onSave={(habit) => {
             actions.saveHabit(habit);

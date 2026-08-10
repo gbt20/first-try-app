@@ -48,18 +48,37 @@ streak per habit. The `‹` `›` arrows step back through previous days so you 
 forgot; you cannot log the future. Habits that aren't due today are tucked into a collapsed
 section, in case you want to log a bonus.
 
-**Habits** — add, edit, reorder, archive, and delete. Each habit has a name, an icon, a colour,
-and a schedule:
+**Habits** — add, edit, reorder, archive, and delete. Each habit has a name, any emoji, any
+colour, optional tags, a schedule, and a way of measuring a day.
+
+*How often it comes due:*
 
 | Schedule | Meaning | Streaks count |
 | --- | --- | --- |
 | Every day | Due every day | days |
 | Certain days | Due only on the weekdays you pick | days |
+| Every N days | Every third day, say — counted from the habit's start | days |
 | Times a week | Any N days per week, your choice which | weeks |
+| Times a month | Any N days per calendar month | months |
+
+*What finishing a day means:*
+
+| Tracking | Example | On the Today row |
+| --- | --- | --- |
+| Just tick it | Meditate | one big check |
+| A number of times | Drink water 8× a day | tap to add one, `−` to correct |
+| An amount | Run 5 km, read 30 pages | tap adds a step you choose |
+| Named times | Pills — morning, evening | one chip per slot, ticked separately |
+
+A day only counts as done once it reaches its target, so 5 of 8 glasses is *part way*, not
+finished — visible as a fill bar on the row and a paler square in the history grid. The two can be
+combined: "gym 3× a week, and a session counts at 30 minutes" is a `times a week` schedule with an
+`amount` target.
 
 **Progress** — best active streak, 30-day completion rate, lifetime totals, a combined heatmap
-shaded by how much of each day you finished, and a per-habit breakdown. Tap any habit for its
-full history, where you can tap individual days to correct them.
+shaded by how much of each day you finished, and a per-habit breakdown. Filter it all by tag. Tap
+any habit for its full history, then tap any day to set exactly what you did — a plain toggle
+stops being enough once a day can hold "5 of 8".
 
 ## How streaks and rates are worked out
 
@@ -76,8 +95,16 @@ These are the rules that make the numbers trustworthy — they're covered by the
   racking up misses.
 - **Off-schedule check-ins count as check-ins** but never as streak days — a bonus Sunday run
   doesn't inflate a weekdays-only streak.
+- **A day counts when it hits its target**, and only then. Part-finished days show as partial
+  everywhere, but they don't extend a streak.
 - **All dates are local.** Days are keyed off your own calendar rather than UTC, so a late-night
   check-in lands on the day you actually did it — including across daylight-saving changes.
+- **Your day can end after midnight.** Set *my day starts at* to 3am in Settings and a 1am
+  check-in belongs to the night before, which is how people actually count a late one.
+- **Changing how a habit is measured converts its history rather than reinterpreting it.** The
+  same stored number means different things under different modes — a count of 4 read as slots
+  would name a slot that doesn't exist — so finished days are rewritten as finished under the new
+  rules and part-finished days are cleared. The editor says so before you save.
 
 ## Your data
 
@@ -89,7 +116,12 @@ Everything lives in this site's `localStorage`, on the one device. That means:
 
 **Progress → Save backup** writes a JSON file, **Copy backup** puts the same JSON on your
 clipboard, and **Restore** reads one back. A file with no habits in it is rejected rather than
-silently wiping what you have.
+silently wiping what you have. **Export CSV** gives one row per logged day for spreadsheets —
+it's export-only, and can't be restored from.
+
+Backups are versioned. A file saved by the first release (schema 1, when a check-in was a plain
+yes/no) still restores today: every completed day is carried across as a finished day under the
+new model.
 
 ## Development
 
@@ -112,13 +144,20 @@ over HTTPS, so the Pages deploy is the real test.
 src/
   types.ts        habit, schedule and state shapes
   dates.ts        local-calendar day keys; deliberately never uses UTC
-  habits.ts       scheduling, streaks, completion rates, heatmap statuses
-  storage.ts      localStorage load/save, tolerant of corrupt or old data
-  useAppState.ts  state, actions, and a clock that notices midnight
-  components/     Today, Habits, Progress, habit detail, editor, heatmap
+  habits.ts       scheduling, streaks, rates, day status, tracking-mode maths
+  storage.ts      localStorage load/save; tolerant of corrupt data, migrates schema 1
+  useAppState.ts  state, actions, and a clock that notices the day rolling over
+  components/     Today, Habits, Progress, habit detail, habit editor, day editor, heatmap
 scripts/
   make-icons.py   regenerates the PWA icons (no dependencies)
 ```
 
 The icon set is generated rather than checked in by hand — edit the colours or artwork in
 `scripts/make-icons.py` and run `python3 scripts/make-icons.py`.
+
+### One number per day
+
+Every tracking mode stores a single number per habit per day: `0`/`1` for a tick, the tally for a
+count, the quantity for an amount, and a bitmask of finished slots for named times. `progressOn`
+collapses all four to a `value` and a `target`, which is why the streak and rate code is identical
+to when a check-in was a boolean — and why it stayed covered by the same tests.

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 
 import { addDays, friendlyDate, monthName, fromKey, startOfWeek, WEEKDAY_INITIAL } from '../dates.ts';
-import { dayStatus } from '../habits.ts';
-import type { Done } from '../habits.ts';
+import { dayStatus, describeProgress, periodOf } from '../habits.ts';
+import type { Days } from '../habits.ts';
 import type { DateKey, Habit, WeekStart } from '../types.ts';
 
 interface Props {
   habit: Habit;
-  done: Done;
+  days: Days;
   today: DateKey;
   weekStart: WeekStart;
   /** How many week-columns to draw. */
@@ -22,7 +22,7 @@ interface Props {
  */
 export function Heatmap({
   habit,
-  done,
+  days,
   today,
   weekStart,
   weeks = 18,
@@ -35,7 +35,7 @@ export function Heatmap({
       const weekOf = addDays(firstColumn, w * 7);
       return {
         weekOf,
-        days: Array.from({ length: 7 }, (_, d) => addDays(weekOf, d)),
+        cells: Array.from({ length: 7 }, (_, d) => addDays(weekOf, d)),
       };
     });
   }, [today, weekStart, weeks]);
@@ -70,11 +70,14 @@ export function Heatmap({
           </div>
         )}
         <div className="heatmap-grid">
-          {columns.map(({ weekOf, days }) => (
+          {columns.map(({ weekOf, cells }) => (
             <div className="heatmap-week" key={weekOf}>
-              {days.map((day) => {
-                const status = dayStatus(habit, done, day, today);
-                const label = `${friendlyDate(day, today)} — ${STATUS_LABEL[status]}`;
+              {cells.map((day) => {
+                const status = dayStatus(habit, days, day, today);
+                const label =
+                  status === 'inactive' || status === 'future'
+                    ? `${friendlyDate(day, today)} — ${STATUS_LABEL[status]}`
+                    : `${friendlyDate(day, today)} — ${describeProgress(habit, days, day)}`;
                 return onSelectDay && status !== 'future' && status !== 'inactive' ? (
                   <button
                     key={day}
@@ -118,15 +121,21 @@ export function HeatmapScroll({ children }: { children: ReactNode }) {
 
 /** Key for the colours in a heatmap, matched to what that habit can show. */
 export function HeatmapLegend({ habit }: { habit: Habit }) {
-  // No single day is required by a "N times a week" habit, so it can never
-  // show a missed day and saying otherwise would be confusing.
-  const canMiss = habit.schedule.kind !== 'timesPerWeek';
+  const partial = habit.tracking.kind !== 'check';
+  // No single day is required by a per-week or per-month quota, so those can
+  // never show a missed day and saying otherwise would be confusing.
+  const canMiss = periodOf(habit.schedule) === 'day';
   return (
     <div className="legend" style={{ ['--habit-color' as string]: habit.color }}>
       <span className="cell cell-off" /> {canMiss ? 'not scheduled' : 'not done'}
       {canMiss && (
         <>
           <span className="cell cell-missed" /> missed
+        </>
+      )}
+      {partial && (
+        <>
+          <span className="cell cell-partial" /> part way
         </>
       )}
       <span className="cell cell-done" /> done
@@ -136,6 +145,7 @@ export function HeatmapLegend({ habit }: { habit: Habit }) {
 
 const STATUS_LABEL: Record<string, string> = {
   done: 'done',
+  partial: 'part way',
   missed: 'missed',
   off: 'not scheduled',
   pending: 'not yet done',
